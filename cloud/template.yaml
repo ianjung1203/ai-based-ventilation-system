@@ -431,6 +431,55 @@ Resources:
       SourceAccount: !Ref AWS::AccountId
       SourceArn: !GetAtt AlertRule.Arn
 
+  # ═════════ C2 (정훈) ─ B. 원격 명령·설정 ═════════
+  CommandApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/vent-command-api
+      RetentionInDays: 30
+
+  CommandApiFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: CommandApiLogGroup
+    Properties:
+      FunctionName: vent-command-api
+      CodeUri: command_api/
+      Handler: app.handler
+      Environment:
+        Variables:
+          IOT_DATA_ENDPOINT: https://a3kpxm984jauzv-ats.iot.ap-southeast-2.amazonaws.com
+          ACTUATOR_TABLE: !Ref ActuatorEventsTable
+          RUNS_TABLE: !Ref ExperimentRunsTable
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref ActuatorEventsTable }    # cmd_id-index 조회
+        - DynamoDBCrudPolicy: { TableName: !Ref ExperimentRunsTable }    # PUT /run 기록
+        - Statement:
+            - Effect: Allow
+              Action: iot:Publish
+              Resource: !Sub arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topic/vent/*/cmd
+            - Effect: Allow
+              Action: [iot:GetThingShadow, iot:UpdateThingShadow]
+              Resource: !Sub arn:aws:iot:${AWS::Region}:${AWS::AccountId}:thing/vent-*
+      Events:
+        Actuator:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/devices/{id}/actuator', Method: POST }
+        CommandResult:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/commands/{cmd_id}', Method: GET }
+        Settings:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/devices/{id}/settings', Method: PUT }
+        Scenario:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/devices/{id}/scenario', Method: PUT }
+        Occupancy:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/devices/{id}/occupancy', Method: PUT }
+        Run:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/devices/{id}/run', Method: PUT }
+
 Outputs:
   ApiUrl:
     Description: 조회 API 주소 (대시보드에서 사용)
