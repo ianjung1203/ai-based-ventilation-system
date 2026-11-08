@@ -479,6 +479,12 @@ Resources:
         Run:
           Type: HttpApi
           Properties: { ApiId: !Ref HttpApi, Path: '/devices/{id}/run', Method: PUT }
+        Run:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/devices/{id}/run', Method: PUT }
+        GetSettings:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/devices/{id}/settings', Method: GET }
 
 Outputs:
   ApiUrl:

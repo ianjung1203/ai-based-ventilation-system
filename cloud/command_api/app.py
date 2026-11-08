@@ -70,6 +70,8 @@ def handler(event, context):
         if not DEVICE_RE.match(device_id):
             raise BadRequest("device id 형식이 잘못됐어요 (예: vent-01)")
         body = read_body(event)
+        if route == "GET /devices/{id}/settings":
+            return get_settings(device_id)
 
         if route == "POST /devices/{id}/actuator":
             return post_actuator(device_id, body)
@@ -230,6 +232,27 @@ def put_run(device_id, body):
 
     raise BadRequest("action 은 START 또는 STOP")
 
+def get_settings(device_id):
+    """대시보드 설정 화면용: desired(요청), reported(파이 보고), effective(앞으로 적용될 값)"""
+    try:
+        doc = json.loads(iot.get_thing_shadow(thingName=device_id)["payload"].read())
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ResourceNotFoundException":
+            raise
+        doc = {}
+    state = doc.get("state", {})
+    desired = state.get("desired") or {}
+    reported = state.get("reported") or {}
+    effective = {**DEFAULTS, "run_id": "NONE", "scenario": None, "occupancy_set": None, **reported, **desired}
+    for d in (desired, reported, effective):
+        d.pop("welcome", None)  # 콘솔이 넣은 기본값 제외
+    return resp(200, {
+        "device_id": device_id,
+        "desired": desired,
+        "reported": reported,
+        "effective": effective,
+        "shadow_version": doc.get("version"),
+    })
 
 # ───────── Shadow 도구 ─────────
 def get_shadow_state(device_id):
