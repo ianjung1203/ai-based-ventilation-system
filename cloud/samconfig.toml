@@ -1,0 +1,12 @@
+version = 0.1
+
+[default.global.parameters]
+region = "ap-southeast-2"
+
+[default.deploy.parameters]
+stack_name = "vent-cloud"
+region = "ap-southeast-2"
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+s3_prefix = "vent-cloud"
+confirm_changeset = true
