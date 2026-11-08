@@ -1,1 +1,8 @@
 .env
+*.pem
+*.key
+*.crt
+certs/
+.aws-sam/
+node_modules/
+__pycache__/

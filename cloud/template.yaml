@@ -1,0 +1,359 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  vent-cloud C1 (대원) - IoT Core로 들어온 메시지 저장.
+  DynamoDB 종류별 테이블 + S3 원본(raw/)·오류(errors/) + IoT Rules.
+  근거: SAD v0.5 4.2 MQTT 공통 규약(멱등키 device_id + ts#seq, TTL 90일), 5.1 데이터 저장소.
+
+Parameters:
+  TtlSeconds:
+    Type: Number
+    Default: 7776000
+    Description: DynamoDB 자동 삭제 기간(초). 기본 90일.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 10
+    MemorySize: 256
+
+Resources:
+  # ───────── S3: 원본 보관(raw/), 모델(models/), Rule 실패(errors/) ─────────
+  DataBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain          # 스택을 지워도 데이터는 남긴다
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub vent-data-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-errors-30d
+            Prefix: errors/
+            Status: Enabled
+            ExpirationInDays: 30
+
+  # ───────── DynamoDB: 토픽 종류별 테이블 (PK=device_id, SK=ts#seq) ─────────
+  ReadingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: vent-readings
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: device_id, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: device_id, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      TimeToLiveSpecification: { AttributeName: expires_at, Enabled: true }
+
+  PredictionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: vent-predictions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: device_id, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: device_id, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      TimeToLiveSpecification: { AttributeName: expires_at, Enabled: true }
+
+  RecommendationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: vent-recommendations
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: device_id, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+        - { AttributeName: rec_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: device_id, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      GlobalSecondaryIndexes:
+        - IndexName: rec_id-index          # 알림 Lambda가 alert의 rec_id로 추천 내용을 찾음
+          KeySchema:
+            - { AttributeName: rec_id, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+      TimeToLiveSpecification: { AttributeName: expires_at, Enabled: true }
+
+  ActuatorEventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: vent-actuator-events
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: device_id, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+        - { AttributeName: cmd_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: device_id, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      GlobalSecondaryIndexes:
+        - IndexName: cmd_id-index          # 대시보드가 수동 명령의 실행 결과를 cmd_id로 확인
+          KeySchema:
+            - { AttributeName: cmd_id, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+      TimeToLiveSpecification: { AttributeName: expires_at, Enabled: true }
+
+  OccupancyEventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: vent-occupancy-events
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: device_id, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: device_id, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      TimeToLiveSpecification: { AttributeName: expires_at, Enabled: true }
+
+  # 기기별 마지막 heartbeat 1줄 (오프라인 감지용, SAD 빈칸 → 팀 제안)
+  DeviceStatusTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: vent-device-status
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: device_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: device_id, KeyType: HASH }
+
+  # 실험 회차 기록 (PUT /run 에서 씀 - 정훈 C2)
+  ExperimentRunsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: vent-experiment-runs
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: device_id, AttributeType: S }
+        - { AttributeName: run_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: device_id, KeyType: HASH }
+        - { AttributeName: run_id, KeyType: RANGE }
+
+  # ───────── IoT Rules가 쓰는 권한 ─────────
+  IotRuleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: iot.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: vent-iot-rule-write
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:PutItem
+                Resource:
+                  - !GetAtt ReadingsTable.Arn
+                  - !GetAtt PredictionsTable.Arn
+                  - !GetAtt RecommendationsTable.Arn
+                  - !GetAtt ActuatorEventsTable.Arn
+                  - !GetAtt OccupancyEventsTable.Arn
+                  - !GetAtt DeviceStatusTable.Arn
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub ${DataBucket.Arn}/*
+
+  # ───────── IoT Rules: 토픽 → 테이블 (같은 device_id + ts#seq 는 덮어써서 중복 제거) ─────────
+  TelemetryRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      RuleName: vent_telemetry_to_ddb
+      TopicRulePayload:
+        AwsIotSqlVersion: '2016-03-23'
+        RuleDisabled: false
+        Sql: !Sub "SELECT *, topic(2) AS device_id, concat(ts, '#', cast(seq AS String)) AS sk, floor(timestamp() / 1000) + ${TtlSeconds} AS expires_at FROM 'vent/+/telemetry'"
+        Actions:
+          - DynamoDBv2:
+              PutItem: { TableName: !Ref ReadingsTable }
+              RoleArn: !GetAtt IotRuleRole.Arn
+        ErrorAction:
+          S3:
+            BucketName: !Ref DataBucket
+            Key: 'errors/${topic()}/${timestamp()}-${newuuid()}.json'
+            RoleArn: !GetAtt IotRuleRole.Arn
+
+  PredictionRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      RuleName: vent_prediction_to_ddb
+      TopicRulePayload:
+        AwsIotSqlVersion: '2016-03-23'
+        RuleDisabled: false
+        Sql: !Sub "SELECT *, topic(2) AS device_id, concat(ts, '#', cast(seq AS String)) AS sk, floor(timestamp() / 1000) + ${TtlSeconds} AS expires_at FROM 'vent/+/prediction'"
+        Actions:
+          - DynamoDBv2:
+              PutItem: { TableName: !Ref PredictionsTable }
+              RoleArn: !GetAtt IotRuleRole.Arn
+        ErrorAction:
+          S3:
+            BucketName: !Ref DataBucket
+            Key: 'errors/${topic()}/${timestamp()}-${newuuid()}.json'
+            RoleArn: !GetAtt IotRuleRole.Arn
+
+  RecommendationRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      RuleName: vent_recommendation_to_ddb
+      TopicRulePayload:
+        AwsIotSqlVersion: '2016-03-23'
+        RuleDisabled: false
+        Sql: !Sub "SELECT *, topic(2) AS device_id, concat(ts, '#', cast(seq AS String)) AS sk, floor(timestamp() / 1000) + ${TtlSeconds} AS expires_at FROM 'vent/+/recommendation'"
+        Actions:
+          - DynamoDBv2:
+              PutItem: { TableName: !Ref RecommendationsTable }
+              RoleArn: !GetAtt IotRuleRole.Arn
+        ErrorAction:
+          S3:
+            BucketName: !Ref DataBucket
+            Key: 'errors/${topic()}/${timestamp()}-${newuuid()}.json'
+            RoleArn: !GetAtt IotRuleRole.Arn
+
+  ActuatorRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      RuleName: vent_actuator_to_ddb
+      TopicRulePayload:
+        AwsIotSqlVersion: '2016-03-23'
+        RuleDisabled: false
+        Sql: !Sub "SELECT *, topic(2) AS device_id, concat(ts, '#', cast(seq AS String)) AS sk, floor(timestamp() / 1000) + ${TtlSeconds} AS expires_at FROM 'vent/+/actuator'"
+        Actions:
+          - DynamoDBv2:
+              PutItem: { TableName: !Ref ActuatorEventsTable }
+              RoleArn: !GetAtt IotRuleRole.Arn
+        ErrorAction:
+          S3:
+            BucketName: !Ref DataBucket
+            Key: 'errors/${topic()}/${timestamp()}-${newuuid()}.json'
+            RoleArn: !GetAtt IotRuleRole.Arn
+
+  OccupancyRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      RuleName: vent_occupancy_to_ddb
+      TopicRulePayload:
+        AwsIotSqlVersion: '2016-03-23'
+        RuleDisabled: false
+        Sql: !Sub "SELECT *, topic(2) AS device_id, concat(ts, '#', cast(seq AS String)) AS sk, floor(timestamp() / 1000) + ${TtlSeconds} AS expires_at FROM 'vent/+/occupancy'"
+        Actions:
+          - DynamoDBv2:
+              PutItem: { TableName: !Ref OccupancyEventsTable }
+              RoleArn: !GetAtt IotRuleRole.Arn
+        ErrorAction:
+          S3:
+            BucketName: !Ref DataBucket
+            Key: 'errors/${topic()}/${timestamp()}-${newuuid()}.json'
+            RoleArn: !GetAtt IotRuleRole.Arn
+
+  HeartbeatRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      RuleName: vent_heartbeat_to_status
+      TopicRulePayload:
+        AwsIotSqlVersion: '2016-03-23'
+        RuleDisabled: false
+        Sql: "SELECT topic(2) AS device_id, ts AS last_heartbeat_ts, seq, uptime_s, outbox_size, model_version, time_synced, timestamp() AS received_at_ms FROM 'vent/+/heartbeat'"
+        Actions:
+          - DynamoDBv2:
+              PutItem: { TableName: !Ref DeviceStatusTable }
+              RoleArn: !GetAtt IotRuleRole.Arn
+        ErrorAction:
+          S3:
+            BucketName: !Ref DataBucket
+            Key: 'errors/${topic()}/${timestamp()}-${newuuid()}.json'
+            RoleArn: !GetAtt IotRuleRole.Arn
+
+  # 파이가 보낸 모든 메시지 원본을 S3에 (재학습용). cmd(클라우드→파이)는 제외.
+  RawArchiveRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      RuleName: vent_raw_to_s3
+      TopicRulePayload:
+        AwsIotSqlVersion: '2016-03-23'
+        RuleDisabled: false
+        Sql: "SELECT * FROM 'vent/+/+' WHERE topic(3) <> 'cmd'"
+        Actions:
+          - S3:
+              BucketName: !Ref DataBucket
+              Key: 'raw/${topic(2)}/${run_id}/${topic(3)}/${ts}-${seq}.json'
+              RoleArn: !GetAtt IotRuleRole.Arn
+        ErrorAction:
+          S3:
+            BucketName: !Ref DataBucket
+            Key: 'errors/${topic()}/${timestamp()}-${newuuid()}.json'
+            RoleArn: !GetAtt IotRuleRole.Arn
+
+  # ───────── ④ 조회 API (대시보드 → API Gateway → Lambda → DynamoDB) ─────────
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: ['*']
+        AllowMethods: [GET, POST, PUT, OPTIONS]
+        AllowHeaders: [content-type, authorization]
+        MaxAge: 600
+
+  QueryApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/vent-query-api
+      RetentionInDays: 30            # SAD 8장: 로그 30일 보관
+
+  QueryApiFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: QueryApiLogGroup
+    Properties:
+      FunctionName: vent-query-api
+      CodeUri: query_api/
+      Handler: app.handler
+      Environment:
+        Variables:
+          READINGS_TABLE: !Ref ReadingsTable
+          PREDICTIONS_TABLE: !Ref PredictionsTable
+          RECOMMENDATIONS_TABLE: !Ref RecommendationsTable
+          ACTUATOR_TABLE: !Ref ActuatorEventsTable
+          OCCUPANCY_TABLE: !Ref OccupancyEventsTable
+          STATUS_TABLE: !Ref DeviceStatusTable
+      Policies:                      # 읽기 권한만
+        - DynamoDBReadPolicy: { TableName: !Ref ReadingsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref PredictionsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref RecommendationsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref ActuatorEventsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref OccupancyEventsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref DeviceStatusTable }
+      Events:
+        ListDevices:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: /devices, Method: GET }
+        Latest:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/devices/{id}/latest', Method: GET }
+        History:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/devices/{id}/history', Method: GET }
+
+Outputs:
+  ApiUrl:
+    Description: 조회 API 주소 (대시보드에서 사용)
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  DataBucketName:
+    Value: !Ref DataBucket
+  IotRuleRoleArn:
+    Value: !GetAtt IotRuleRole.Arn
