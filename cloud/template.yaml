@@ -11,6 +11,12 @@ Parameters:
     Default: 7776000
     Description: DynamoDB 자동 삭제 기간(초). 기본 90일.
 
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 10
+    MemorySize: 256
+
 Resources:
   # ───────── S3: 원본 보관(raw/), 모델(models/), Rule 실패(errors/) ─────────
   DataBucket:
@@ -294,7 +300,59 @@ Resources:
             Key: 'errors/${topic()}/${timestamp()}-${newuuid()}.json'
             RoleArn: !GetAtt IotRuleRole.Arn
 
+  # ───────── ④ 조회 API (대시보드 → API Gateway → Lambda → DynamoDB) ─────────
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: ['*']
+        AllowMethods: [GET, POST, PUT, OPTIONS]
+        AllowHeaders: [content-type, authorization]
+        MaxAge: 600
+
+  QueryApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/vent-query-api
+      RetentionInDays: 30            # SAD 8장: 로그 30일 보관
+
+  QueryApiFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: QueryApiLogGroup
+    Properties:
+      FunctionName: vent-query-api
+      CodeUri: query_api/
+      Handler: app.handler
+      Environment:
+        Variables:
+          READINGS_TABLE: !Ref ReadingsTable
+          PREDICTIONS_TABLE: !Ref PredictionsTable
+          RECOMMENDATIONS_TABLE: !Ref RecommendationsTable
+          ACTUATOR_TABLE: !Ref ActuatorEventsTable
+          OCCUPANCY_TABLE: !Ref OccupancyEventsTable
+          STATUS_TABLE: !Ref DeviceStatusTable
+      Policies:                      # 읽기 권한만
+        - DynamoDBReadPolicy: { TableName: !Ref ReadingsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref PredictionsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref RecommendationsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref ActuatorEventsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref OccupancyEventsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref DeviceStatusTable }
+      Events:
+        ListDevices:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: /devices, Method: GET }
+        Latest:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/devices/{id}/latest', Method: GET }
+        History:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: '/devices/{id}/history', Method: GET }
+
 Outputs:
+  ApiUrl:
+    Description: 조회 API 주소 (대시보드에서 사용)
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
   DataBucketName:
     Value: !Ref DataBucket
   IotRuleRoleArn:
