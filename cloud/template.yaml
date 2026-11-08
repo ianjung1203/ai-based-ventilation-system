@@ -349,6 +349,88 @@ Resources:
           Type: HttpApi
           Properties: { ApiId: !Ref HttpApi, Path: '/devices/{id}/history', Method: GET }
 
+  # ═════════ C2 (정훈) ─ A. 알림 ═════════
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: vent-alerts           # 이메일 구독은 콘솔에서 (주소를 깃에 남기지 않으려고)
+
+  # 같은 알림 한 번만: rec#{rec_id}, offline#{device_id}#{마지막 수신 시각}
+  NotifyLogTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: vent-notify-log
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: notify_key, AttributeType: S }
+      KeySchema:
+        - { AttributeName: notify_key, KeyType: HASH }
+      TimeToLiveSpecification: { AttributeName: expires_at, Enabled: true }
+
+  NotifyLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/vent-notify
+      RetentionInDays: 30
+
+  NotifyFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: NotifyLogGroup
+    Properties:
+      FunctionName: vent-notify
+      CodeUri: notify/
+      Handler: app.handler
+      Environment:
+        Variables:
+          RECOMMENDATIONS_TABLE: !Ref RecommendationsTable
+          STATUS_TABLE: !Ref DeviceStatusTable
+          NOTIFY_LOG_TABLE: !Ref NotifyLogTable
+          SNS_TOPIC_ARN: !Ref AlertsTopic
+          DISCORD_PARAM: /vent/discord-webhook-url   # 웹후크 주소는 SSM에만 (깃 금지)
+          LATE_ALERT_SEC: '300'
+          OFFLINE_MINUTES: '15'
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref RecommendationsTable }
+        - DynamoDBReadPolicy: { TableName: !Ref DeviceStatusTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref NotifyLogTable }
+        - SNSPublishMessagePolicy: { TopicName: !GetAtt AlertsTopic.TopicName }
+        - Statement:
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/vent/discord-webhook-url
+      Events:
+        OfflineCheck:                  # 5분마다 heartbeat 끊김 확인
+          Type: Schedule
+          Properties:
+            Name: vent-offline-check
+            Schedule: rate(5 minutes)
+
+  AlertRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      RuleName: vent_alert_to_notify
+      TopicRulePayload:
+        AwsIotSqlVersion: '2016-03-23'
+        RuleDisabled: false
+        Sql: "SELECT rec_id, ts, topic(2) AS device_id FROM 'vent/+/alert'"
+        Actions:
+          - Lambda:
+              FunctionArn: !GetAtt NotifyFunction.Arn
+        ErrorAction:
+          S3:
+            BucketName: !Ref DataBucket
+            Key: 'errors/${topic()}/${timestamp()}-${newuuid()}.json'
+            RoleArn: !GetAtt IotRuleRole.Arn
+
+  AlertRuleInvokePermission:           # IoT Rule이 vent-notify를 부를 수 있게
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt NotifyFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: iot.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !GetAtt AlertRule.Arn
+
 Outputs:
   ApiUrl:
     Description: 조회 API 주소 (대시보드에서 사용)
@@ -357,3 +439,5 @@ Outputs:
     Value: !Ref DataBucket
   IotRuleRoleArn:
     Value: !GetAtt IotRuleRole.Arn
+  AlertsTopicArn:
+    Value: !Ref AlertsTopic
