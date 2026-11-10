@@ -2,7 +2,7 @@
 vent-query-api (C1, 대원) - 대시보드가 저장된 데이터를 꺼내 가는 조회 API.
 근거: SAD v0.5 부록 A.3
 
-  GET /devices                       기기 목록 + 마지막 heartbeat + 온라인 여부
+  GET /devices                       기기 목록 + 마지막 heartbeat + 온라인 여부(서버 수신 시각 기준)
   GET /devices/{id}/latest           최신 telemetry·prediction·recommendation·actuator·occupancy + 상태
   GET /devices/{id}/history          기간별 기록
         ?type=readings|predictions|recommendations|actuator|occupancy (기본 readings)
@@ -95,14 +95,20 @@ def _latest(table_name, device_id):
     return items[0] if items else None
 
 
+def _received_at(status):
+    """서버가 heartbeat를 받은 시각(received_at_ms, IoT Rule의 timestamp()).
+    파이 시계가 틀려도 영향이 없도록 온라인 판단은 이 값을 쓴다 (정훈 오프라인 알림과 같은 기준)."""
+    ms = (status or {}).get("received_at_ms")
+    if ms is None:
+        return None
+    return datetime.fromtimestamp(int(ms) / 1000, tz=timezone.utc)
+
+
 def _online(status, now):
-    ts = (status or {}).get("last_heartbeat_ts")
-    if not ts:
+    received = _received_at(status)
+    if received is None:
         return False
-    try:
-        return now - _parse_iso(ts, "last_heartbeat_ts") <= OFFLINE_AFTER
-    except BadRequest:
-        return False
+    return now - received <= OFFLINE_AFTER
 
 
 # ───────── 경로별 처리 ─────────
@@ -113,6 +119,7 @@ def list_devices():
         {
             "device_id": it["device_id"],
             "last_heartbeat_ts": it.get("last_heartbeat_ts"),
+            "last_seen_ts": _iso(_received_at(it)) if _received_at(it) else None,
             "online": _online(it, now),
             "model_version": it.get("model_version"),
         }
@@ -134,6 +141,7 @@ def latest(device_id):
         "occupancy": _latest(TABLES["occupancy"], device_id),
         "status": {
             "last_heartbeat_ts": (status or {}).get("last_heartbeat_ts"),
+            "last_seen_ts": _iso(_received_at(status)) if _received_at(status) else None,
             "online": _online(status, now),
             "model_version": (status or {}).get("model_version"),
             "time_synced": (status or {}).get("time_synced"),
