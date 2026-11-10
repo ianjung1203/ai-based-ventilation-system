@@ -11,6 +11,7 @@
     --interval 10   telemetry 전송 간격(초). 플랩이 열리면 SAD대로 5초로 줄어든다.
     --count 0       telemetry를 몇 번 보내고 끝낼지 (0 = Ctrl+C 할 때까지 계속)
     --dup           각 telemetry를 두 번씩 보낸다 (3단계 '중복 저장' 테스트용)
+    --hb 300        heartbeat 간격(초). 기본 300초(SAD 5분). 오프라인 알림 시험은 --hb 0 (시작 때만 보냄)
 
 인증서 파일은 깃 저장소 바깥(C:\\vent-certs)에서 읽는다. 저장소에 넣지 말 것.
 """
@@ -21,6 +22,7 @@ import os
 import random
 import ssl
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 
@@ -138,7 +140,7 @@ def on_connect(client, userdata, flags, reason_code, properties):
 
 
 def on_disconnect(client, userdata, flags, reason_code, properties):
-    print(f"[연결 끊김] {reason_code} (자동으로 다시 접속을 시도합니다)")
+    print(f"[연결 끊김] {reason_code}" + ("" if str(reason_code) == "Normal disconnection" else " (자동으로 다시 접속을 시도합니다)"))
 
 
 def on_message(client, userdata, msg):
@@ -175,11 +177,18 @@ def on_message(client, userdata, msg):
     publish(client, "actuator", p)
 
 
+def heartbeat_loop(client, interval, stop):
+    """telemetry와 따로, interval초마다 heartbeat를 보낸다 (진짜 파이처럼 5분 주기)."""
+    while not stop.wait(interval):
+        publish(client, "heartbeat", make_heartbeat())
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--interval", type=float, default=10)
     ap.add_argument("--count", type=int, default=0)
     ap.add_argument("--dup", action="store_true")
+    ap.add_argument("--hb", type=float, default=HEARTBEAT_S)
     args = ap.parse_args()
 
     ca = find_one("AmazonRootCA1.pem")
@@ -197,20 +206,24 @@ def main():
     client.loop_start()
     time.sleep(2)
 
+    stop = threading.Event()
+    if args.hb > 0:
+        threading.Thread(target=heartbeat_loop, args=(client, args.hb, stop), daemon=True).start()
+        print(f"[heartbeat] {int(args.hb)}초마다 보냄")
+    else:
+        print("[heartbeat] 시작 때 한 번만 보냄 (오프라인 알림 시험 모드)")
+
     sent = 0
-    last_hb = time.time()
     try:
         while args.count == 0 or sent < args.count:
             publish(client, "telemetry", make_telemetry(), dup=args.dup)
             sent += 1
-            if time.time() - last_hb >= HEARTBEAT_S:
-                publish(client, "heartbeat", make_heartbeat())
-                last_hb = time.time()
             # SAD: 플랩이 열려 있는 동안은 5초 간격
             time.sleep(5 if state["flap"] == "OPEN" else args.interval)
     except KeyboardInterrupt:
         print("\n[종료] Ctrl+C")
     finally:
+        stop.set()
         time.sleep(1)
         client.loop_stop()
         client.disconnect()
