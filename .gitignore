@@ -6,3 +6,4 @@ certs/
 .aws-sam/
 node_modules/
 __pycache__/
+Claude outputs/
