@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 700" width="760" height="700" font-family="'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif" font-size="13">
+  <title>실험 모형 배치도</title>
+  <rect x="0" y="0" width="760" height="700" fill="#ffffff"/>
+  <text x="24" y="32" font-size="16" font-weight="700" fill="#1f2328">실험 모형 배치도 — 센서·모터는 상자 안, Pi는 상자 바깥 옆 벽에</text>
+  <text x="24" y="54" font-size="12" fill="#57606a">아크릴 상자 40 × 25 × 30cm (약 30L) · 파란 칸 = 뚫는 구멍 1개 · 점선 = 상자 안에 만드는 출입 통로 · 대략적인 축척</text>
+
+  <!-- ① 위에서 본 모습 -->
+  <text x="200" y="88" font-size="13" font-weight="700" fill="#57606a">① 위에서 본 모습</text>
+  <rect x="200" y="100" width="360" height="225" fill="none" stroke="#8c959f" stroke-width="1.5"/>
+  <text x="380" y="117" text-anchor="middle" font-size="11" fill="#57606a">뒤쪽</text>
+  <text x="380" y="318" text-anchor="middle" font-size="11" fill="#57606a">앞쪽</text>
+
+  <rect x="270" y="136" width="130" height="56" rx="6" fill="#ddf4ff" stroke="#0969da" stroke-width="1.5"/>
+  <text x="335" y="159" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2328">센서 받침대</text>
+  <text x="335" y="178" text-anchor="middle" font-size="11" fill="#1f2328">SCD41 · PMS5003</text>
+
+  <rect x="216" y="252" width="100" height="48" rx="4" fill="none" stroke="#0969da" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="266" y="281" text-anchor="middle" font-size="12" fill="#1f2328">출입 통로</text>
+  <rect x="240" y="248" width="10" height="8" fill="#0969da"/>
+  <rect x="264" y="248" width="10" height="8" fill="#0969da"/>
+  <text x="245" y="242" text-anchor="middle" font-size="11" font-weight="700" fill="#1f2328">A</text>
+  <text x="269" y="242" text-anchor="middle" font-size="11" font-weight="700" fill="#1f2328">B</text>
+
+  <circle cx="490" cy="270" r="16" fill="none" stroke="#0969da" stroke-width="1.5"/>
+  <text x="490" y="274" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2328">M</text>
+  <text x="490" y="304" text-anchor="middle" font-size="11" fill="#57606a">모터</text>
+
+  <rect x="556" y="226" width="8" height="18" fill="#0969da"/>
+  <text x="546" y="218" text-anchor="end" font-size="11" fill="#57606a">센서·모터 선 구멍</text>
+  <path d="M564 235H572" fill="none" stroke="#8c959f" stroke-width="1.25"/>
+  <rect x="572" y="196" width="132" height="80" rx="8" fill="#f6f8fa" stroke="#8c959f" stroke-width="1.25"/>
+  <text x="638" y="220" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2328">Raspberry Pi 4</text>
+  <text x="638" y="239" text-anchor="middle" font-size="11" fill="#1f2328">+ 브레드보드</text>
+  <text x="638" y="256" text-anchor="middle" font-size="11" fill="#1f2328">+ DRV8825</text>
+  <text x="638" y="296" text-anchor="middle" font-size="11" fill="#57606a">상자 바깥 옆 벽에 부착</text>
+  <text x="638" y="313" text-anchor="middle" font-size="11" fill="#57606a">전원: Pi 5V 3A · 모터 12V</text>
+
+  <text x="200" y="350" font-size="12" fill="#57606a">출입 통로: A → B로 지나가면 입장, B → A면 퇴장 · 통로 벽은 불투명한 폼보드</text>
+
+  <!-- ② 옆에서 본 모습 -->
+  <text x="200" y="388" font-size="13" font-weight="700" fill="#57606a">② 옆에서 본 모습</text>
+  <rect x="200" y="400" width="360" height="270" fill="none" stroke="#8c959f" stroke-width="1.5"/>
+  <line x1="194" y1="400" x2="566" y2="400" stroke="#0969da" stroke-width="4"/>
+  <text x="380" y="422" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2328">뚜껑 = 창문</text>
+  <text x="380" y="440" text-anchor="middle" font-size="11" fill="#57606a">환기할 때·입김 넣을 때 사람이 직접 열고 닫는다 · 테두리에 문풍지</text>
+
+  <rect x="300" y="535" width="130" height="135" fill="#f6f8fa" stroke="#8c959f" stroke-width="1"/>
+  <text x="365" y="610" text-anchor="middle" font-size="12" fill="#57606a">받침대</text>
+  <rect x="304" y="507" width="56" height="28" rx="4" fill="#ddf4ff" stroke="#0969da" stroke-width="1.5"/>
+  <text x="332" y="525" text-anchor="middle" font-size="11" font-weight="700" fill="#1f2328">SCD41</text>
+  <rect x="366" y="501" width="62" height="34" rx="4" fill="#ddf4ff" stroke="#0969da" stroke-width="1.5"/>
+  <text x="397" y="522" text-anchor="middle" font-size="11" font-weight="700" fill="#1f2328">PMS5003</text>
+
+  <rect x="216" y="634" width="74" height="34" rx="4" fill="none" stroke="#0969da" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="253" y="655" text-anchor="middle" font-size="11" fill="#1f2328">출입 통로</text>
+
+  <circle cx="490" cy="653" r="14" fill="none" stroke="#0969da" stroke-width="1.5"/>
+  <text x="490" y="657" text-anchor="middle" font-size="11" font-weight="700" fill="#1f2328">M</text>
+
+  <rect x="556" y="560" width="8" height="18" fill="#0969da"/>
+  <path d="M564 569H572" fill="none" stroke="#8c959f" stroke-width="1.25"/>
+  <rect x="572" y="530" width="132" height="80" rx="8" fill="#f6f8fa" stroke="#8c959f" stroke-width="1.25"/>
+  <text x="638" y="556" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2328">Pi + 브레드보드</text>
+  <text x="638" y="575" text-anchor="middle" font-size="11" fill="#1f2328">+ DRV8825</text>
+  <text x="638" y="594" text-anchor="middle" font-size="11" fill="#57606a">(바깥 벽에 부착)</text>
+</svg>
