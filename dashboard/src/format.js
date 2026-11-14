@@ -103,3 +103,49 @@ export function predictionPoints(pred) {
   }
   return out
 }
+
+// 외부 PM2.5 등급 (팀 UI 시안 기준: 15 이하 좋음, 35 이하 보통, 75 이하 나쁨)
+export function pmGrade(value) {
+  const n = Number(value)
+  if (value === null || value === undefined || !Number.isFinite(n)) return { label: '확인 불가', tone: 'gray' }
+  if (n <= 15) return { label: '좋음', tone: 'green' }
+  if (n < 36) return { label: '보통', tone: 'blue' }
+  if (n < 76) return { label: '나쁨', tone: 'amber' }
+  return { label: '매우 나쁨', tone: 'red' }
+}
+
+// run-20261108T153859Z -> Date (실험 시작 시각)
+export function runStart(runId) {
+  const m = /^run-(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(runId || '')
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : NaN
+}
+
+export function fmtDateLong(v = Date.now()) {
+  return new Date(v).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
+}
+
+// actuator · recommendation 기록을 '최근 기록' 목록으로 합친다 (최신 순)
+export function buildEvents(actuators = [], recs = []) {
+  const ev = []
+  for (const a of actuators) {
+    ev.push({
+      key: `a-${a.sk || a.ts}`,
+      ts: a.ts,
+      kind: a.state === 'OPEN' ? 'open' : a.state === 'CLOSED' ? 'close' : 'error',
+      tone: a.result && a.result !== 'OK' ? 'amber' : a.state === 'ERROR' ? 'red' : 'green',
+      title: `창문 ${STATE_TEXT[a.state] || a.state}`,
+      detail: `${TRIGGER_TEXT[a.trigger] || a.trigger || '-'} · ${RESULT_TEXT[a.result] || a.result || '-'}`,
+    })
+  }
+  for (const r of recs) {
+    ev.push({
+      key: `r-${r.sk || r.ts}`,
+      ts: r.ts,
+      kind: 'rec',
+      tone: r.reason_code === 'PM_VERY_BAD_HOLD' ? 'amber' : 'blue',
+      title: r.need_vent ? '환기 추천 도착' : '환기 불필요 판단',
+      detail: `${REASON_TEXT[r.reason_code] || r.reason_code || '-'}${r.duration_sec ? ` · ${fmtDuration(r.duration_sec)}` : ''}`,
+    })
+  }
+  return ev.sort((x, y) => Date.parse(y.ts) - Date.parse(x.ts))
+}
