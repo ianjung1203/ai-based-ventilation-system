@@ -1,0 +1,291 @@
+{
+  "scope": "SYNTHETIC_ONLY",
+  "evaluation_seconds_per_scenario": 6900,
+  "note": "Same simulated box/noise per strategy; includes PM restrictions. Not field performance or an energy metric.",
+  "mean_metrics": {
+    "current_rules": {
+      "seconds_above_1000": 2301.25,
+      "max_co2_ppm": 1318.29,
+      "open_seconds": 930.0,
+      "opening_count": 13.62
+    },
+    "ai_start_physics_duration": {
+      "seconds_above_1000": 2245.0,
+      "max_co2_ppm": 1311.53,
+      "open_seconds": 950.0,
+      "opening_count": 13.88
+    },
+    "ai_start_ai_duration": {
+      "seconds_above_1000": 1787.5,
+      "max_co2_ppm": 1294.86,
+      "open_seconds": 1025.0,
+      "opening_count": 12.88
+    }
+  },
+  "runs": [
+    {
+      "scenario": 0,
+      "strategy": "current_rules",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 3270,
+      "max_co2_ppm": 1124.8,
+      "open_seconds": 1750,
+      "opening_count": 17,
+      "closing_count": 17,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 0,
+      "strategy": "ai_start_physics_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 3170,
+      "max_co2_ppm": 1126.4,
+      "open_seconds": 1740,
+      "opening_count": 17,
+      "closing_count": 17,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 0,
+      "strategy": "ai_start_ai_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 420,
+      "max_co2_ppm": 1035.5,
+      "open_seconds": 2130,
+      "opening_count": 16,
+      "closing_count": 16,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 1,
+      "strategy": "current_rules",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 110,
+      "max_co2_ppm": 1005.5,
+      "open_seconds": 1120,
+      "opening_count": 14,
+      "closing_count": 14,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 1,
+      "strategy": "ai_start_physics_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 0,
+      "max_co2_ppm": 984.2,
+      "open_seconds": 1160,
+      "opening_count": 16,
+      "closing_count": 16,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 1,
+      "strategy": "ai_start_ai_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 0,
+      "max_co2_ppm": 979.2,
+      "open_seconds": 1240,
+      "opening_count": 15,
+      "closing_count": 15,
+      "closures_at_target": 2
+    },
+    {
+      "scenario": 2,
+      "strategy": "current_rules",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 6740,
+      "max_co2_ppm": 2162.7,
+      "open_seconds": 410,
+      "opening_count": 16,
+      "closing_count": 16,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 2,
+      "strategy": "ai_start_physics_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 6740,
+      "max_co2_ppm": 2162.7,
+      "open_seconds": 410,
+      "opening_count": 16,
+      "closing_count": 16,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 2,
+      "strategy": "ai_start_ai_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 6740,
+      "max_co2_ppm": 2162.7,
+      "open_seconds": 410,
+      "opening_count": 16,
+      "closing_count": 16,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 3,
+      "strategy": "current_rules",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 60,
+      "max_co2_ppm": 1002.1,
+      "open_seconds": 610,
+      "opening_count": 8,
+      "closing_count": 7,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 3,
+      "strategy": "ai_start_physics_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 0,
+      "max_co2_ppm": 994.8,
+      "open_seconds": 640,
+      "opening_count": 8,
+      "closing_count": 8,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 3,
+      "strategy": "ai_start_ai_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 0,
+      "max_co2_ppm": 991.3,
+      "open_seconds": 620,
+      "opening_count": 7,
+      "closing_count": 6,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 4,
+      "strategy": "current_rules",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 50,
+      "max_co2_ppm": 1002.6,
+      "open_seconds": 670,
+      "opening_count": 9,
+      "closing_count": 8,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 4,
+      "strategy": "ai_start_physics_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 0,
+      "max_co2_ppm": 987.9,
+      "open_seconds": 720,
+      "opening_count": 9,
+      "closing_count": 9,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 4,
+      "strategy": "ai_start_ai_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 0,
+      "max_co2_ppm": 987.9,
+      "open_seconds": 710,
+      "opening_count": 8,
+      "closing_count": 8,
+      "closures_at_target": 5
+    },
+    {
+      "scenario": 5,
+      "strategy": "current_rules",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 80,
+      "max_co2_ppm": 1002.3,
+      "open_seconds": 880,
+      "opening_count": 11,
+      "closing_count": 11,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 5,
+      "strategy": "ai_start_physics_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 0,
+      "max_co2_ppm": 991.8,
+      "open_seconds": 880,
+      "opening_count": 11,
+      "closing_count": 11,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 5,
+      "strategy": "ai_start_ai_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 0,
+      "max_co2_ppm": 992.6,
+      "open_seconds": 960,
+      "opening_count": 8,
+      "closing_count": 8,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 6,
+      "strategy": "current_rules",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 6630,
+      "max_co2_ppm": 2162.1,
+      "open_seconds": 370,
+      "opening_count": 16,
+      "closing_count": 16,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 6,
+      "strategy": "ai_start_physics_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 6630,
+      "max_co2_ppm": 2162.1,
+      "open_seconds": 370,
+      "opening_count": 16,
+      "closing_count": 16,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 6,
+      "strategy": "ai_start_ai_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 6630,
+      "max_co2_ppm": 2162.1,
+      "open_seconds": 370,
+      "opening_count": 16,
+      "closing_count": 16,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 7,
+      "strategy": "current_rules",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 1470,
+      "max_co2_ppm": 1084.2,
+      "open_seconds": 1630,
+      "opening_count": 18,
+      "closing_count": 17,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 7,
+      "strategy": "ai_start_physics_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 1420,
+      "max_co2_ppm": 1082.3,
+      "open_seconds": 1680,
+      "opening_count": 18,
+      "closing_count": 18,
+      "closures_at_target": 0
+    },
+    {
+      "scenario": 7,
+      "strategy": "ai_start_ai_duration",
+      "source": "SYNTHETIC",
+      "seconds_above_1000": 510,
+      "max_co2_ppm": 1047.6,
+      "open_seconds": 1760,
+      "opening_count": 17,
+      "closing_count": 17,
+      "closures_at_target": 0
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "model_version": "yeoreojo-20261116T041706Z",
+  "training_source": "SYNTHETIC_OR_MIXED",
+  "status": "READY",
+  "reason_codes": [],
+  "curves": {
+    "closed": {
+      "status": "READY",
+      "assumed_window_state": "CLOSED",
+      "seconds": [
+        60,
+        120,
+        180,
+        300,
+        600,
+        900
+      ],
+      "co2_ppm": [
+        640.9,
+        681.1,
+        720.1,
+        798.9,
+        989.9,
+        1177.2
+      ],
+      "lower_ppm": [
+        633.3,
+        672.2,
+        708.7,
+        781.5,
+        953.7,
+        1106.6
+      ],
+      "upper_ppm": [
+        648.4,
+        690.0,
+        731.5,
+        816.2,
+        1026.0,
+        1247.8
+      ],
+      "band_type": "VALIDATION_ABSOLUTE_ERROR_P90_NOT_GUARANTEED"
+    },
+    "open": {
+      "status": "READY",
+      "assumed_window_state": "OPEN",
+      "seconds": [
+        10
+      ],
+      "co2_ppm": [
+        599.5
+      ],
+      "lower_ppm": [
+        592.8
+      ],
+      "upper_ppm": [
+        606.3
+      ],
+      "band_type": "VALIDATION_ABSOLUTE_ERROR_P90_NOT_GUARANTEED"
+    }
+  },
+  "base_ts": "2026-02-17T01:59:50Z",
+  "observed_co2_ppm": 604.178,
+  "history_count": 31,
+  "available_open_seconds": 10.0,
+  "threshold_eta_sec": 616.1772557394554,
+  "target_eta_sec": 0.0,
+  "target_status": "ALREADY_AT_TARGET",
+  "inference_ms": 2.35,
+  "assumption": "The chosen future window state and outdoor conditions remain constant.",
+  "execution_mode": "OFFLINE_REPLAY"
+}

@@ -1,0 +1,4 @@
+timestamp,run_id,co2_ppm,temp_c,humidity_pct,outdoor_co2_ppm,outdoor_temp_c,outdoor_pm25_ugm3,window_open,window_changed_at,outdoor_observed_at,source,outdoor_source
+1767225600,synthetic-000,626.656,23.205,44.82,402.525,21.597,50.0,False,1767225600,1767225600,SYNTHETIC,SCENARIO
+1767225610,synthetic-000,635.975,23.205,44.82,402.525,21.597,50.0,False,1767225600,1767225610,SYNTHETIC,SCENARIO
+1767225620,synthetic-000,648.002,23.205,44.82,402.525,21.597,50.0,False,1767225600,1767225620,SYNTHETIC,SCENARIO
