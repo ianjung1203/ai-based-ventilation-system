@@ -1,0 +1,17 @@
+[Unit]
+Description=AirTiming sensor collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yuno
+WorkingDirectory=/home/yuno/airtiming
+ExecStart=/home/yuno/venv/bin/python /home/yuno/airtiming/collector.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

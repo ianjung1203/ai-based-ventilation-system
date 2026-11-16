@@ -1,0 +1,10 @@
+# 센서 데이터 DB는 파이에만 둔다
+*.db
+*.db-wal
+*.db-shm
+
+# 파이썬
+__pycache__/
+*.pyc
+venv/
+.venv/
