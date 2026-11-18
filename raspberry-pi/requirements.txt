@@ -2,3 +2,4 @@ adafruit-circuitpython-scd4x
 adafruit-circuitpython-vl53l0x
 adafruit-extended-bus
 pyserial
+paho-mqtt>=2.1

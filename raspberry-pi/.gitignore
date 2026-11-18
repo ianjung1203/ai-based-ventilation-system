@@ -8,3 +8,12 @@ __pycache__/
 *.pyc
 venv/
 .venv/
+
+# AWS 인증서·키와 설정 파일은 절대 올리지 않는다
+certs/
+*.pem
+*.pem.crt
+*.pem.key
+*.key
+config.ini
+.vent_seq

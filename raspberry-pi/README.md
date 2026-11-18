@@ -4,7 +4,7 @@ AI 기반 환기 추천 시스템의 하드웨어 파트입니다.
 라즈베리파이 4에 센서 4개와 LED를 연결해 실내 공기질과 출입을 측정하고,
 CO₂ 농도에 따라 창문 열림을 LED로 표시합니다. (실제 창문 모터는 범위 밖이라 LED로 대체)
 
-## 현재 상태 (2026-11-16)
+## 현재 상태 (2026-11-18)
 
 | 항목 | 상태 |
 | --- | --- |
@@ -13,7 +13,9 @@ CO₂ 농도에 따라 창문 열림을 LED로 표시합니다. (실제 창문 �
 | VL53L0X ×2 (출입 감지) | 동작 확인, 아크릴 상자에서 판정 검증 중 |
 | LED (창문 개폐 표시) | 코드 작성 완료 |
 | 통합 수집 + 로컬 저장 (SQLite) | 완료 |
-| 클라우드 전송 | 예정 (서버 담당과 형식 합의 후) |
+| AWS IoT Core 연결 (`vent-01`) | 확인 완료 — 상태 보고(heartbeat), 대시보드 수동 명령 수신·응답 |
+| 센서값 주기 전송 (telemetry) | 예정 — 서버 형식(SAD 4.2)으로 10초마다, 끊기면 재전송 |
+| 외부 공기질·기온, AI 모델 연결 | 예정 |
 
 ## 구성
 
@@ -25,6 +27,7 @@ CO₂ 농도에 따라 창문 열림을 LED로 표시합니다. (실제 창문 �
 | VL53L0X 1번 (바깥쪽) | I²C bus 1, 주소 `0x29` | 출입 감지 |
 | VL53L0X 2번 (안쪽) | I²C bus 3 (GPIO23/24), 주소 `0x29` | 출입 감지 |
 | LED + 저항 220~330Ω | GPIO18 | 창문 열림 표시 |
+| AWS IoT Core (ap-southeast-2) | MQTT over TLS, 포트 8883 (막히면 443) | 서버 (사물 이름 `vent-01`) |
 
 VL53L0X 2대는 주소가 같아서 소프트웨어 I²C 버스(bus 3)를 하나 더 만들어 분리했습니다.
 자세한 배선은 [docs/SETUP.md](docs/SETUP.md#4-배선)에 있습니다.
@@ -44,11 +47,12 @@ raspberry-pi/
 │   ├── tof2_test.py              VL53L0X 2대 동시 테스트
 │   ├── led_test.py               LED 배선 확인
 │   ├── calib.py                  출입 감지 기준 거리 측정
-│   └── diag.py                   출입 감지 진단 (한쪽만 반응할 때)
+│   ├── diag.py                   출입 감지 진단 (한쪽만 반응할 때)
+│   └── cloud_test.py             서버(AWS IoT Core) 연결 테스트
 ├── config/
 │   └── boot-config.txt           /boot/firmware/config.txt에 추가할 설정
 └── docs/
-    ├── SETUP.md                  SD카드 굽기부터 자동 실행까지 전체 절차
+    ├── SETUP.md                  SD카드 굽기부터 서버 연결 확인까지 전체 절차
     └── TROUBLESHOOTING.md        겪었던 문제와 해결법
 ```
 
@@ -97,9 +101,43 @@ python3 ~/airtiming/collector.py
 - 양쪽이 모두 반응해야 통과로 인정합니다. 한쪽만 가렸다 치우면 무시합니다.
 - 들어옴/나감을 누적해 현재 재실 인원(`occupancy`)을 추정합니다.
 
-## 데이터 형식 (서버·대시보드 연동용)
+## 서버 연결 (AWS IoT Core)
+
+서버(대원)와 대시보드(정훈)는 SAD 4.2의 MQTT 규약을 따릅니다. 파이는 AWS IoT 사물 `vent-01`로 접속합니다.
+
+| 토픽 | 방향 | 내용 |
+| --- | --- | --- |
+| `vent/vent-01/heartbeat` | 파이 → 서버 | 상태 보고(규약은 5분마다, 지금은 테스트 때 1회). 대시보드 온라인 표시 |
+| `vent/vent-01/telemetry` | 파이 → 서버 | 10초마다 센서값 (`co2_ppm`, `pm25_ugm3`, `temp_c`, `humidity_pct`, `occupancy`, 외부값) — 다음 단계에서 구현 |
+| `vent/vent-01/cmd` | 서버 → 파이 | 대시보드 수동 열기/닫기 (`cmd_id`, `action`, `duration_sec`, `issued_ts`) |
+| `vent/vent-01/actuator` | 파이 → 서버 | 명령 처리 결과 (`state`, `trigger`, `cmd_id`, `result`) |
+
+모든 메시지에는 공통으로 `schema_version`(1), `ts`(UTC), `msg_id`(`vent-01-<seq>`), `seq`, `run_id`가 붙습니다.
+`seq`는 껐다 켜도 이어지도록 파이의 `~/airtiming/.vent_seq`에 저장합니다.
+명령은 발행 후 30초가 지났으면 `EXPIRED`, 이미 처리한 `cmd_id`면 `DUPLICATE`로 응답합니다.
+
+### 인증서
+
+대원에게 받은 `vent-01` 인증서 3개는 **파이의 `~/airtiming/certs/`에만** 둡니다. 저장소에는 절대 넣지 않습니다(`.gitignore`에 등록).
+
+```
+AmazonRootCA1.pem
+xxxx-certificate.pem.crt
+xxxx-private.pem.key      <- 비밀번호와 같다. 유출되면 대원이 AWS에서 비활성화 후 재발급
+```
+
+### 연결 확인 결과 (2026-11-18)
+
+`tools/cloud_test.py`로 실제 서버에 접속해 확인했습니다.
+
+- 파이 → 서버: heartbeat 전송, 대시보드에 온라인 표시
+- 서버 → 파이: 대시보드 수동 열기 명령이 **0.5초** 만에 도착(SAD 목표 3초), `actuator`로 결과 응답
+- 대시보드 측정값 카드는 `telemetry`만 읽습니다. 센서값 주기 전송은 다음 단계입니다.
+
+## 데이터 형식 (로컬 DB)
 
 모든 데이터는 파이의 `~/airtiming/readings.db` (SQLite)에 저장됩니다.
+서버로 보낼 때는 위 표의 SAD 4.2 이름(`co2` → `co2_ppm` 등)으로 바꿔서 보냅니다.
 **시각은 전부 UTC**이며 ISO 8601 형식입니다. 예: `2026-11-16T05:12:30.123Z`
 센서가 실패한 필드는 `null`로 들어갑니다.
 
@@ -145,7 +183,10 @@ python3 ~/airtiming/collector.py
 
 - [ ] 아크릴 상자에서 출입 감지 정확도 검증 (`tools/calib.py`, `tools/diag.py`)
 - [ ] 상자 누기율(빈 상자에서 CO₂ 자연 감소 속도) 측정
-- [ ] 클라우드 전송: `synced = 0`인 행을 모아 전송, 실패 시 재시도
+- [x] 서버 연결 확인 (heartbeat, 대시보드 수동 명령)
+- [ ] 센서값을 서버 형식으로 10초마다 전송, 끊기면 쌓아뒀다가 재전송
+- [ ] 외부 공기질(에어코리아)·외부 기온(기상청) 수집
+- [ ] AI 모델 연결 (CO₂ 예측, 환기 권고 → LED)
 - [ ] 네트워크 끊김 → 복구 시 누락 없이 올라가는지 테스트
 
 ## 참고

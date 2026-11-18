@@ -228,6 +228,58 @@ ENV {"device_id": "pi01", "co2": 712, ...}
 
 ---
 
+## 10. 서버 연결 확인 (AWS IoT Core)
+
+### 인증서 옮기기
+
+대원에게 `vent-01` 인증서 3개를 **개인 톡으로** 받아, 노트북의 저장소 **바깥** 폴더(예: `C:\Users\yunsa\SSU\3third\2session\vent-certs`)에 둡니다.
+
+```
+[파이] mkdir -p ~/airtiming/certs ~/airtiming/tools
+[PC]   scp (Get-ChildItem C:\Users\yunsa\SSU\3third\2session\vent-certs\*).FullName yuno@claudeaiot.local:~/airtiming/certs/
+[파이] chmod 600 ~/airtiming/certs/*-private.pem.key
+[파이] ls ~/airtiming/certs
+```
+
+파일 이름은 받은 그대로 둡니다. 채팅 앱을 거치며 개인 키 끝에 `.txt`가 붙었다면 떼어 냅니다.
+
+### 테스트
+
+`[PC]` 명령은 노트북의 저장소 폴더(`ai-based-ventilation-system`)에서 실행합니다.
+**테스트하는 동안 대원의 `fake_pi.py`는 꺼 둡니다.** 같은 `vent-01`로 둘이 접속하면 서로 끊어 냅니다.
+
+```
+[PC]   scp raspberry-pi\tools\cloud_test.py yuno@claudeaiot.local:~/airtiming/tools/
+[파이] source ~/venv/bin/activate
+[파이] pip install -r ~/airtiming/requirements.txt
+[파이] timedatectl                                   # System clock synchronized: yes 확인
+[파이] python3 ~/airtiming/tools/cloud_test.py
+```
+
+정상 출력:
+
+```
+3) 접속: a3kpxm984jauzv-ats.iot.ap-southeast-2.amazonaws.com:8883 (client_id=vent-01)
+   성공, vent/vent-01/cmd 구독
+4) heartbeat 발행
+   → vent/vent-01/heartbeat  {...}
+6) 120초 동안 대시보드 수동 버튼 명령을 기다립니다.
+   ← vent/vent-01/cmd  {... "action": "OPEN" ...}
+     명령 OPEN, 발행 후 0.5초 경과 -> OK (창문 OPEN)
+     → vent/vent-01/actuator  {...}
+```
+
+기다리는 동안 대시보드에서 **수동 열기 → 수동 닫기**를 차례로 누릅니다. 닫기까지 눌러야 대시보드 모터 상태가 원래대로 돌아옵니다.
+이 테스트는 통신만 확인하며 LED는 움직이지 않습니다.
+
+| 옵션 | 용도 |
+| --- | --- |
+| `--telemetry` | 로컬 DB의 최신 센서값 1건도 보내서 대시보드 카드에 표시 |
+| `--port 443` | 학교망에서 8883 포트가 막혔을 때 |
+| `--wait 600` | 명령 대기 시간을 늘릴 때 (초) |
+
+---
+
 ## 센서 메모
 
 - **SCD41**: 측정 주기 5초. 밀폐 상자에서는 자동보정(ASC)을 꺼야 합니다.
